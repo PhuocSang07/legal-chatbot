@@ -16,9 +16,8 @@ from semantic_router.sample import chatbotSample, chitchatSample
 from langgraph.graph import START, StateGraph
 from pydantic import BaseModel, Field
 from typing import Literal
-from grader import GradeDocuments, GraphState
+from grader import GradeDocuments
 from langchain_google_genai import ChatGoogleGenerativeAI
-from rag import RAG, State
 
 import time
 store = LocalFileStore("./cache/")
@@ -27,7 +26,7 @@ store = LocalFileStore("./cache/")
 load_dotenv()
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_Key")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")    
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Set device
@@ -49,6 +48,20 @@ def get_embeddings():
     return embedder
 
 embedding = get_embeddings()
+
+# --- Initialize Qdrant client and vector store --- #
+@st.cache_resource
+def get_vectorstore():
+    client = QdrantClient(
+        url=QDRANT_URL,
+        api_key=QDRANT_API_KEY,
+    )
+    
+    return QdrantVectorStore(
+    client=client, 
+    collection_name="qa_tvpl",
+    embedding=embedding
+)
 
 # --- Initialize LLM --- #
 @st.cache_resource
@@ -87,9 +100,7 @@ prompt = ChatPromptTemplate.from_messages(
 )
 
 # Initialize components
-rag = RAG(embedding, QDRANT_URL, QDRANT_API_KEY, collection_name="qa_tvpl")
-vector_store = rag.get_vectorstore()
-
+vector_store = get_vectorstore()
 llm = get_llm()
 llm_document_relevant = get_llm_document_relevant()
 structured_llm_grader = llm_document_relevant.with_structured_output(GradeDocuments)
@@ -157,7 +168,19 @@ if user_question := st.chat_input("What is up?"):
 
             if guidedRoute == LEGAL_ROUTE_NAME:        
                 with st.spinner("Searching for relevant information..."):
+                    retriver = vector_store.as_retriever()
                     docs = retriver.invoke(user_question, k=5)
+                    # Display sources
+                    with st.sidebar:
+                        st.write(f"#### Num of original documents: {len(docs)}" )
+                        for i, doc in enumerate(docs, 1):
+                            with st.expander(f"Sources {i}: {doc.metadata['sub_title'][:40]}..."):
+                                st.write(f"Title: {doc.metadata['sub_title']}")
+                                st.write(f"Date published: {doc.metadata['date_published']}")
+                                st.write(doc.page_content)
+                                st.write(f"Keywords: {', '.join(doc.metadata['keyword'])}")
+                                st.write(f"URL: {doc.metadata['url']}")
+                                
                     with st.spinner("Check relevant Documents..."):
                         filtered_docs = []
                         for doc in docs:
@@ -180,15 +203,14 @@ if user_question := st.chat_input("What is up?"):
                     
                     # Display sources
                     with st.sidebar:
-                        st.write(f"#### Num of original documents: {len(docs)} \n#### Num of filtered dodcuments: {len(filtered_docs)}" )
+                        st.write(f"#### Num of filtered documents: {len(filtered_docs)}" )
                         for i, doc in enumerate(filtered_docs, 1):
-                            with st.expander(f"Sources {i}"):
-                                st.write(doc.page_content)
-                                st.write(f"URL: {doc.metadata['url']}")
+                            with st.expander(f"Sources {i}: {doc.metadata['sub_title'][:40]}..."):
                                 st.write(f"Title: {doc.metadata['sub_title']}")
                                 st.write(f"Date published: {doc.metadata['date_published']}")
+                                st.write(doc.page_content)
                                 st.write(f"Keywords: {', '.join(doc.metadata['keyword'])}")
-                                st.write("---") 
+                                st.write(f"URL: {doc.metadata['url']}")
             elif guidedRoute == CHITCHAT_ROUTE_NAME:
                     messages = prompt.invoke({"input": user_question, "context": ""})
                     with st.spinner("Generating answer..."):
