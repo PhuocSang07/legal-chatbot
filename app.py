@@ -1,7 +1,6 @@
-from operator import le
+# from operator import le
 import streamlit as st
 import torch
-from pydantic import BaseModel
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -9,32 +8,24 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
-import logging
-from typing import Generic, Iterator, Sequence, TypeVar
-from langchain.schema import Document
-from langchain_core.stores import BaseStore
-from sqlalchemy.orm import sessionmaker, scoped_session
+# import logging
+# from typing import Generic, Iterator, Sequence, TypeVar, Literal, Optional
+# from langchain.schema import Document
+# from langchain_core.stores import BaseStore
 from langchain.retrievers import ParentDocumentRetriever
 from langchain.embeddings import CacheBackedEmbeddings
 from langchain.storage import LocalFileStore
 from semantic_router import SemanticRouter, Route
 from semantic_router.sample import chatbotSample, chitchatSample
-from pydantic import BaseModel, Field
-from typing import Literal
+# from pydantic import BaseModel, Field
 from grader import GradeDocuments
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from PostgresStore import PostgresStore
-from SQLDocument import SQLDocument, Base
-import time
-from sqlalchemy import Column, String, create_engine
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.dialects.postgresql import JSONB
-from pydantic import BaseModel, Field
-from typing import Optional
-import pandas as pd
-from sqlalchemy import create_engine
-import io
+from parent_document_retriever import PostgresStore
+# import time
+# from sqlalchemy import Column, String, create_engine
+# from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
+# from sqlalchemy.dialects.postgresql import JSONB
 
 load_dotenv()
 store = LocalFileStore("./cache/")
@@ -100,7 +91,8 @@ def get_llm():
     return ChatGroq(
         temperature=0,
         groq_api_key=GROQ_API_KEY,
-        model_name="llama-3.1-8b-instant"
+        # model_name="llama-3.1-8b-instant"
+        model_name="gemma2-9b-it"
     )
 
 @st.cache_resource
@@ -139,7 +131,8 @@ child_splitter = RecursiveCharacterTextSplitter(chunk_size=2048, chunk_overlap=5
 document_store = PostgresStore(URL_STRING)
 parent_retriever = get_parent_doc_retrieve(vector_store, document_store, child_splitter, parent_splitter)
 
-llm = get_llm()
+# llm = get_llm()
+llm = get_llm_document_relevant()
 llm_document_relevant = get_llm_document_relevant()
 structured_llm_grader = llm_document_relevant.with_structured_output(GradeDocuments)
 system = """
@@ -207,7 +200,7 @@ if user_question := st.chat_input("What is up?"):
             if guidedRoute == LEGAL_ROUTE_NAME:        
                 with st.spinner("Searching for relevant information..."):
                     # retriver = vector_store.as_retriever()
-                    docs = parent_retriever.invoke(user_question)
+                    docs = parent_retrievergi.invoke(user_question)
                     # Display sources
                     with st.sidebar:
                         st.write(f"#### Num of original documents: {len(docs)}" )

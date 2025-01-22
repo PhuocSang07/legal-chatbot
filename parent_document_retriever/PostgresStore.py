@@ -2,8 +2,8 @@ import logging
 from typing import Generic, Iterator, Sequence, TypeVar, Optional
 from langchain.schema import Document
 from langchain_core.stores import BaseStore
-from DocumentModel import DocumentModel
-from SQLDocument import SQLDocument, Base
+from parent_document_retriever.DocumentModel import DocumentModel
+from parent_document_retriever.SQLDocument import SQLDocument, Base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy import Column, String, create_engine
 from sqlalchemy.orm import declarative_base
